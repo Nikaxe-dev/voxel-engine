@@ -26,17 +26,14 @@ public partial class VoxelManager : Node
     [Export] public int MaxHeight = 128;
     [Export] public Noise Noise;
 
-    [Export] public Color[] Colors;
-
     [Export] public int RenderDistance = 4;
-    [Export] public int AmountOfLoadingThreads = 4;
+    [Export] public int VerticalRenderDistance = 4;
+
+    [Export] public Color[] Colors;
 
     public Dictionary<Vector3I, Chunk> Chunks = [];
 
-    private List<Chunk> OrphanedChunks = [];
-
-    private Task LoadingTask;
-    private List<List<Vector3I>> LoadingThreadChunks = [];
+    private List<Chunk> ChunkPool = [];
 
     public override void _Ready()
     {
@@ -85,51 +82,31 @@ public partial class VoxelManager : Node
         //         GD.PrintErr($"Chunk loading thread failed: ${ex}");
         //     }
         // });
-
-        for (int i=0; i<AmountOfLoadingThreads; i++)
-        {
-            LoadingThreadChunks.Add([]);
-            StartLoadingThread(i);
-        }
-    }
-
-    private void StartLoadingThread(int threadIndex)
-    {
-        Task.Run(async () =>
-        {
-            try {
-            while (true)
-            {
-                var chunks = LoadingThreadChunks[threadIndex];
-                while (chunks.Count > 0)
-                {
-                    LoadChunk(chunks[0]);
-                    chunks.RemoveAt(0);
-                }
-            }
-            } catch (Exception err)
-            {
-                GD.PrintErr($"Chunk loading thread {threadIndex} encountered error: {err}");
-            }
-        });
     }
 
     private Vector3I oldPlayerChunkPosition = Vector3I.Zero;
+    private Vector3I lastChunkUpdatePosition = Vector3I.Zero;
+
     private Task recalculateTask;
+    private CancellationTokenSource recalculateCancelToken;
+
+    [Export] public int ChunkUpdateThreshold = 2;
 
     public override void _Process(double delta)
     {
         Vector3I playerChunkPosition = (Vector3I)(Player.Instance.Position / ChunkSize).Floor();
 
-        if (recalculateTask is { IsCompleted: false })
-            return;
-
-        if (playerChunkPosition != oldPlayerChunkPosition)
+        if (playerChunkPosition != oldPlayerChunkPosition && (playerChunkPosition-lastChunkUpdatePosition).Length() >= ChunkUpdateThreshold)
         {
-            recalculateTask = Task.Run(async () =>
+            lastChunkUpdatePosition = playerChunkPosition;
+
+            recalculateCancelToken?.Cancel();
+
+            recalculateCancelToken = new();
+            recalculateTask = Task.Run(() =>
             {
                 try {
-                    RecalculateChunks(playerChunkPosition);
+                    RecalculateChunks(playerChunkPosition, recalculateCancelToken.Token);
                 } catch (Exception err)
                 {
                     GD.PrintErr("Encountered error when recalculating chunks: ", err);
@@ -138,20 +115,14 @@ public partial class VoxelManager : Node
         }
 
         oldPlayerChunkPosition = playerChunkPosition;
-
-        while (OrphanedChunks.Count > 0)
-        {
-            AddChild(OrphanedChunks[0]);
-            OrphanedChunks.RemoveAt(0);
-        }
     }
 
     private Vector3I[] GenerateChunksSpiral(Vector3I center)
     {
         List<Vector3I> result = [];
 
-        int maxY = center.Y + RenderDistance;
-        int minY = center.Y - RenderDistance;
+        int maxY = center.Y + VerticalRenderDistance; // center.Y + RenderDistance;
+        int minY = center.Y - VerticalRenderDistance; // center.Y - RenderDistance;
 
         int x = 0;
         int z = 0;
@@ -190,23 +161,23 @@ public partial class VoxelManager : Node
         return [.. result];
     }
 
-    private void RecalculateChunks(Vector3I playerChunkPosition)
+    private void RecalculateChunks(Vector3I playerChunkPosition, CancellationToken cancelToken)
     {
         var chunkPositions = GenerateChunksSpiral(playerChunkPosition);
-        List<Vector3I> loadedChunkPositions = [];
-
-        foreach (Vector3I chunkPosition in chunkPositions)
-        {
-            ThreadLoadChunk(chunkPosition);
-            loadedChunkPositions.Add(chunkPosition);
-        }
 
         foreach (Vector3I chunkPosition in Chunks.Keys.ToArray())
         {
-            if (!loadedChunkPositions.Contains(chunkPosition))
+            if (!chunkPositions.Contains(chunkPosition))
             {
-                CallDeferred(MethodName.UnloadChunk, chunkPosition);
+                // CallDeferred(MethodName.UnloadChunk, chunkPosition);
+                UnloadChunk(chunkPosition);
             }
+        }
+
+        foreach (Vector3I chunkPosition in chunkPositions)
+        {
+            LoadChunk(chunkPosition);
+            if (cancelToken.IsCancellationRequested) break;
         }
     }
     
@@ -223,29 +194,52 @@ public partial class VoxelManager : Node
 
     private Vector3I GetChunkGlobalPosition(Vector3I chunkPosition) => chunkPosition * ChunkSize;
 
-    private void ThreadLoadChunk(Vector3I chunkPosition)
+    private Chunk GetNewChunk()
     {
-        int threadIndex = (int)(GD.Randf() * LoadingThreadChunks.Count);
-        LoadingThreadChunks[threadIndex].Add(chunkPosition);
+        if (ChunkPool.Count > 0)
+        {
+            var chunk = ChunkPool[0];
+            ChunkPool.Remove(chunk);
+            return chunk;
+        } else
+        {
+            Chunk chunk = new() {Visible = false};
+            CallDeferred(Node.MethodName.AddChild, chunk);
+            return chunk;
+        }
+    }
+
+    private void ReleaseChunkToPool(Chunk chunk)
+    {
+        ChunkPool.Add(chunk);
+        chunk.CallDeferred(Node3D.MethodName.SetVisible, false);
     }
 
     private void LoadChunk(Vector3I chunkPosition)
     {
         if (!Chunks.TryGetValue(chunkPosition, out _))
         {
-            Chunk chunk = new()
-            {
-                Position = GetChunkGlobalPosition(chunkPosition),
-                Name = $"Chunk@X{chunkPosition.X}@Y{chunkPosition.Y}@Z{chunkPosition.Z}",
-                VoxelPosition = chunkPosition*ChunkSize
-            };
+            Chunk chunk = GetNewChunk();
+            chunk.VoxelPosition = GetChunkGlobalPosition(chunkPosition);
+
+            chunk.CallDeferred(Node3D.MethodName.SetPosition, GetChunkGlobalPosition(chunkPosition));
+            chunk.CallDeferred(Node.MethodName.SetName, $"Chunk@X{chunkPosition.X}@Y{chunkPosition.Y}@Z{chunkPosition.Z}");
 
             Chunks[chunkPosition] = chunk;
-
-            OrphanedChunks.Add(chunk);
             
             chunk.Construct();
             chunk.Update();
+
+            chunk.CallDeferred(Node3D.MethodName.SetVisible, true);
+        }
+    }
+
+    public void AddChunkToTree(Vector3I chunkPosition)
+    {
+        if (Chunks.TryGetValue(chunkPosition, out Chunk chunk))
+        {
+            if (chunk == null || !IsInstanceValid(chunk)) return;
+            AddChild(chunk);
         }
     }
 
@@ -253,32 +247,9 @@ public partial class VoxelManager : Node
     {
         if (Chunks.TryGetValue(chunkPosition, out Chunk chunk))
         {
-            chunk.QueueFree();
+            // chunk.QueueFree();
             Chunks.Remove(chunkPosition);
+            ReleaseChunkToPool(chunk);
         }
     }
-
-    // private void LoadChunks(Vector3I area, Vector3I chunkPosition, Vector3I centerChunk)
-    // {
-    //     List<Vector3I> chunkPositions = [];
-    //     for (int x=0; x<area.X; x++)
-    //     {
-    //         for (int y=0; y<area.Y; y++)
-    //         {
-    //             for (int z=0; z<area.Z; z++)
-    //             {
-    //                 chunkPositions.Add(new Vector3I(x,y,z) + chunkPosition);
-    //             }
-    //         }
-    //     }
-
-    //     IEnumerable<Vector3I> ordered = from position in chunkPositions
-    //                         orderby (position-centerChunk).Length()
-    //                         select position;
-        
-    //     foreach (Vector3I position in ordered)
-    //     {
-    //         LoadChunk(position);
-    //     }
-    // }
 }

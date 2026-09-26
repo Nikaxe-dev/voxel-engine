@@ -31,8 +31,9 @@ DebugCamera = NodePath("World/FreeCamera")
 [node name="VoxelManager" type="Node" parent="World" unique_id=1435228581]
 script = ExtResource("1_eoukn")
 Noise = SubResource("FastNoiseLite_jayjo")
+RenderDistance = 8
+VerticalRenderDistance = 8
 Colors = PackedColorArray(0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1)
-AmountOfLoadingThreads = 1
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="World" unique_id=1765537389]
 transform = Transform3D(0.14644663, 0.8535534, -0.50000006, -0.50000006, 0.50000006, 0.70710677, 0.8535534, 0.14644666, 0.5, -2.0798578, 2.069956, 1.7480159)
@@ -43,7 +44,7 @@ environment = SubResource("Environment_jayjo")
 
 [node name="Player" parent="World" unique_id=1715410596 instance=ExtResource("2_eoukn")]
 transform = Transform3D(0.70710677, 0, 0.70710677, 0, 1, 0, -0.70710677, 0, 0.70710677, 0, 50, 0)
-FLY_SPEED = 50.0
+FLY_SPEED = 250.0
 FLY_VERTICAL_SPEED = 50.0
 
 [node name="FreeCamera" type="Camera3D" parent="World" unique_id=372026525]

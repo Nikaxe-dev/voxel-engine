@@ -11,7 +11,7 @@ public partial class Chunk : Node3D
 {
     public Dictionary<Vector3I, VoxelData> Voxels = [];
 
-    public required Vector3I VoxelPosition;
+    public Vector3I VoxelPosition;
 
     public MeshInstance3D MeshInstance = new()
     {
@@ -53,6 +53,24 @@ public partial class Chunk : Node3D
         Vector3 ChunkSize = VoxelManager.Instance.ChunkSize;
         Color[] Colors = VoxelManager.Instance.Colors;
 
+        RandomNumberGenerator randomNumberGenerator = new();
+
+        for (int x = 0; x < ChunkSize.X; x++)
+        {
+            for (int y = 0; y < ChunkSize.Y; y++)
+            {
+                for (int z = 0; z < ChunkSize.Z; z++)
+                {
+                    var rand = randomNumberGenerator.Randf();
+
+                    if (rand>0.99999f)
+                    {
+                        Voxels[new Vector3I(x,y,z)] = new VoxelData(Colors[0]);
+                    }
+                }
+            }
+        }
+
         for (int x = 0; x < ChunkSize.X; x++)
         {
             for (int z = 0; z < ChunkSize.Z; z++)
@@ -75,35 +93,20 @@ public partial class Chunk : Node3D
             }
         }
 
-        // RandomNumberGenerator randomNumberGenerator = new();
-
-        // for (int x = 0; x < ChunkSize.X; x++)
-        // {
-        //     for (int y = 0; y < ChunkSize.Y; y++)
-        //     {
-        //         for (int z = 0; z < ChunkSize.Z; z++)
-        //         {
-        //             var rand = randomNumberGenerator.Randf();
-
-        //             if (rand>0.9999f)
-        //             {
-        //                 Voxels[new Vector3I(x,y,z)] = new VoxelData(Colors[0]);
-        //             }
-        //         }
-        //     }
-        // }
-
         var endTime = Time.GetTicksUsec();
         var genTime = endTime - startTime;
-
-        // GD.Print("---");
-        // GD.Print($"Voxels Generated: {Voxels.Count}");
-        // GD.Print($"Gen Time: {genTime}");
     }
 
     public void Construct()
     {
+        Voxels = [];
+        CallDeferred(MethodName.SetShapeNull);
         Generate();
+    }
+
+    public void SetShapeNull()
+    {
+        CollisionShape.Shape = null;
     }
 
     private static readonly Vector3[] CubeVertices = [
@@ -222,23 +225,14 @@ public partial class Chunk : Node3D
 
         // if (!IsInstanceValid(MeshInstance) || !IsInstanceValid(CollisionShape)) return;
 
-        // MeshInstance.CallDeferred(MeshInstance3D.MethodName.SetMesh, mesh);
-        // CollisionShape.CallDeferred(CollisionShape3D.MethodName.SetShape, mesh.CreateTrimeshShape());
+        MeshInstance.CallDeferred(MeshInstance3D.MethodName.SetMesh, mesh);
+        CollisionShape.CallDeferred(CollisionShape3D.MethodName.SetShape, mesh.CreateTrimeshShape());
 
         // if (!IsInstanceValid(this)) return;
         // CallDeferred(MethodName.SetMeshAndCollisionShape, mesh, mesh.CreateTrimeshShape());
 
-        VoxelManager.Instance.CallDeferred(VoxelManager.MethodName.ApplyChunkMesh, this, mesh, mesh.CreateTrimeshShape());
+        // VoxelManager.Instance.CallDeferred(VoxelManager.MethodName.ApplyChunkMesh, this, mesh, mesh.CreateTrimeshShape());
     }
-
-    private void SetMeshAndCollisionShape(Mesh mesh, Shape3D shape)
-    {
-        if (!IsInstanceValid(MeshInstance) || !IsInstanceValid(CollisionShape)) return;
-
-        MeshInstance.Mesh = mesh;
-        CollisionShape.Shape = shape;
-    }
-
     public void Update()
     {
         if (Voxels.Count < 1)
