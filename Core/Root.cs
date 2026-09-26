@@ -18,5 +18,10 @@ public partial class Root : Node
         {
             GetTree().Quit();
         }
+
+        if (@event.IsActionPressed("debug_toggle_wireframe"))
+        {
+            GetViewport().DebugDraw = GetViewport().DebugDraw == Viewport.DebugDrawEnum.Wireframe ? Viewport.DebugDrawEnum.Disabled : Viewport.DebugDrawEnum.Wireframe;
+        }
     }
 }

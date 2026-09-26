@@ -4,18 +4,6 @@
 [ext_resource type="Script" uid="uid://clfvtocj43vkb" path="res://Core/Root.cs" id="1_jayjo"]
 [ext_resource type="PackedScene" uid="uid://4q4tb1mwypgk" path="res://Core/Player.tscn" id="2_eoukn"]
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_i8teb"]
-vertex_color_use_as_albedo = true
-uv2_world_triplanar = true
-
-[sub_resource type="BoxMesh" id="BoxMesh_bo4on"]
-material = SubResource("StandardMaterial3D_i8teb")
-
-[sub_resource type="MultiMesh" id="MultiMesh_ti6d1"]
-transform_format = 1
-use_colors = true
-mesh = SubResource("BoxMesh_bo4on")
-
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_jmt6n"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
 ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -33,15 +21,11 @@ script = ExtResource("1_jayjo")
 
 [node name="World" type="Node3D" parent="." unique_id=329249651]
 
-[node name="VoxelManager" type="Node" parent="World" unique_id=1435228581 node_paths=PackedStringArray("MultiMesh")]
+[node name="VoxelManager" type="Node" parent="World" unique_id=1435228581]
 script = ExtResource("1_eoukn")
-WorldSize = Vector3(64, 64, 64)
+ChunkSize = Vector3i(32, 32, 32)
 CutOff = 0.3
-MultiMesh = NodePath("MultiMeshInstance3D")
 Colors = PackedColorArray(0, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1)
-
-[node name="MultiMeshInstance3D" type="MultiMeshInstance3D" parent="World/VoxelManager" unique_id=1812683406]
-multimesh = SubResource("MultiMesh_ti6d1")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="World" unique_id=1765537389]
 transform = Transform3D(0.14644663, 0.8535534, -0.50000006, -0.50000006, 0.50000006, 0.70710677, 0.8535534, 0.14644666, 0.5, -2.0798578, 2.069956, 1.7480159)
@@ -51,4 +35,3 @@ shadow_enabled = true
 environment = SubResource("Environment_jayjo")
 
 [node name="Player" parent="World" unique_id=1715410596 instance=ExtResource("2_eoukn")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 50, 0)

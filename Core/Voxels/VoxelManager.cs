@@ -3,18 +3,26 @@ using System.Collections.Generic;
 
 namespace VoxelEngine.Core.Voxels;
 
-public struct VoxelData(Vector3I Position, Color Color)
+public struct VoxelData(Color Color)
 {
-    public Vector3I Position = Position;
     public Color Color = Color;
 }
 
 public partial class VoxelManager : Node
 {
-    [Export] Vector3 WorldSize = Vector3.One*16;
-    [Export] float CutOff = 0.25f;
+    public static VoxelManager Instance {get; private set;}
 
-    [Export] public MultiMeshInstance3D MultiMesh;
+    [Export] public int WorldSeed = 0;
+
+    [Export] public bool DebugSpaceOutChunks = false;
+    [Export] public Vector3I DebugSpaceOutChunksSpacing = Vector3I.One*8;
+
+    [Export] public bool DebugShowChunkOutline = false;
+
+    [Export] public Vector3I ChunkSize = Vector3I.One*16;
+    [Export] public float CutOff = 0.25f;
+
+    [Export] public Vector3I WorldChunkSize = Vector3I.One*4;
 
     [Export] public Color[] Colors;
 
@@ -26,39 +34,30 @@ public partial class VoxelManager : Node
     {
         base._Ready();
 
-        Performance.AddCustomMonitor("game/voxels", new Callable(this, MethodName.GetVoxelCount));
+        Instance = this;
 
-        var RandomGenerator = new FastNoiseLite();
+        // Chunk chunk = new();
+        // chunk.Construct();
+        // chunk.Update();
+        // AddChild(chunk);
 
-        var startTime = Time.GetTicksUsec();
-
-        for (int x = 0; x < WorldSize.X; x++)
+        for (int x=0; x<WorldChunkSize.X; x++)
         {
-            for (int y = 0; y < WorldSize.Y; y++)
+            for (int y=0; y<WorldChunkSize.Y; y++)
             {
-                for (int z = 0; z < WorldSize.Z; z++)
+                for (int z=0; z<WorldChunkSize.Z; z++)
                 {
-                    var random = RandomGenerator.GetNoise3D(x,y,z);
-                    if (random > CutOff)
+                    Chunk chunk = new()
                     {
-                        Voxels.Add(new VoxelData(new Vector3I(x,y,z), Colors[(int)(GD.Randf()*Colors.Length)]));
-                    }
+                        Position = new Vector3(x,y,z) * (ChunkSize + (DebugSpaceOutChunks ? DebugSpaceOutChunksSpacing : Vector3I.Zero)),
+                        Name = $"Chunk@X{x}@Y{y}@Z{z}"
+                    };
+
+                    chunk.Construct();
+                    chunk.Update();
+                    AddChild(chunk);
                 }
             }
-        }
-
-        var endTime = Time.GetTicksUsec();
-        var genTime = endTime - startTime;
-
-        GD.Print($"Voxels loaded: {GetVoxelCount()}");
-        GD.Print($"Gen Time: {genTime}");
-
-        MultiMesh.Multimesh.InstanceCount = Voxels.Count;
-
-        for (int i=0; i<Voxels.Count; i++)
-        {
-            MultiMesh.Multimesh.SetInstanceTransform(i, new(Basis.Identity, Voxels[i].Position));
-            MultiMesh.Multimesh.SetInstanceColor(i, Voxels[i].Color);
         }
     }
 }
