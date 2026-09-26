@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://4q4tb1mwypgk"]
+
+[ext_resource type="Script" uid="uid://bg1mi7wgpc47y" path="res://Core/Player.cs" id="1_wma8i"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_r5vg0"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_r5vg0"]
+
+[node name="Player" type="CharacterBody3D" unique_id=1715410596 node_paths=PackedStringArray("PlayerCamera")]
+script = ExtResource("1_wma8i")
+PlayerCamera = NodePath("Camera3D")
+IsFlying = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=199208893]
+shape = SubResource("CapsuleShape3D_r5vg0")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=500556881]
+mesh = SubResource("CapsuleMesh_r5vg0")
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=1555051744]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.654967, 0)
