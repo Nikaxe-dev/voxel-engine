@@ -3,8 +3,10 @@
 [ext_resource type="Script" uid="uid://bg1mi7wgpc47y" path="res://Core/Player.cs" id="1_wma8i"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_r5vg0"]
+radius = 0.4
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_r5vg0"]
+radius = 0.4
 
 [node name="Player" type="CharacterBody3D" unique_id=1715410596 node_paths=PackedStringArray("PlayerCamera")]
 script = ExtResource("1_wma8i")

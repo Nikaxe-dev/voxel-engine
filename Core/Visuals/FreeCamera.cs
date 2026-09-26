@@ -36,6 +36,12 @@ public partial class FreeCamera : Camera3D
 
     public void ProcessCameraLookInput(InputEvent @event)
     {
+        if (GetViewport().GetCamera3D() != this)
+        {
+            Input.MouseMode = Input.MouseModeEnum.Captured;
+            return;
+        }
+
         bool TurnEnabled = Input.IsMouseButtonPressed(MouseButton.Right);
         Input.MouseMode = TurnEnabled ? Input.MouseModeEnum.Captured : Input.MouseModeEnum.Visible;
 

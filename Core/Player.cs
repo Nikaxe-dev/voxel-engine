@@ -5,6 +5,8 @@ namespace VoxelEngine.Core;
 
 public partial class Player : CharacterBody3D
 {
+    public static Player Instance {get; private set;}
+
     [Export] public float SPEED = 5;
     [Export] public float FLY_SPEED = 20;
     [Export] public float JUMP_VELOCITY = 6.5f;
@@ -14,6 +16,8 @@ public partial class Player : CharacterBody3D
     [Export] public Camera3D PlayerCamera;
 
     [Export] public float CAMERA_TURN_SENS = 0.009f;
+
+    [Export] public bool MovementEnabled = true;
 
     [Export] public bool IsFlying = false;
 
@@ -26,12 +30,12 @@ public partial class Player : CharacterBody3D
             Velocity += GetGravity() * (float)delta;
         }
 
-        if (Input.IsActionJustPressed("move_up") && IsOnFloor() && !IsFlying)
+        if (Input.IsActionJustPressed("move_up") && IsOnFloor() && !IsFlying && MovementEnabled)
         {
             Velocity = new Vector3(1,0,1) * Velocity + Vector3.Up * JUMP_VELOCITY;
         }
 
-        if (IsFlying)
+        if (IsFlying && MovementEnabled)
         {
             float Joystick = Input.GetAxis("move_down", "move_up");
             Velocity = new Vector3(1,0,1) * Velocity + Vector3.Up * Joystick * FLY_VERTICAL_SPEED;
@@ -51,7 +55,7 @@ public partial class Player : CharacterBody3D
 
         float Speed = IsFlying ? FLY_SPEED : SPEED;
 
-        if (InputDir != Vector2.Zero)
+        if (InputDir != Vector2.Zero && MovementEnabled)
         {
             Velocity = new Vector3(Direction.X*Speed, Velocity.Y, Velocity.Z);
             Velocity = new Vector3(Velocity.X, Velocity.Y, Direction.Z*Speed);
@@ -66,11 +70,16 @@ public partial class Player : CharacterBody3D
 
     public override void _Ready()
     {
+        base._Ready();
+
+        Instance = this;
         Input.MouseMode = Input.MouseModeEnum.Captured;
     }
 
     public override void _UnhandledInput(InputEvent @event)
     {
+        base._UnhandledInput(@event);
+
         if (@event is InputEventMouseMotion mouseMotion)
         {
             Vector3 Rotation = Vector3.Down * mouseMotion.Relative.X * CAMERA_TURN_SENS + Vector3.Left * mouseMotion.Relative.Y * CAMERA_TURN_SENS;

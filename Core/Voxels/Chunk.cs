@@ -11,22 +11,24 @@ public partial class Chunk : Node3D
 {
     public Dictionary<Vector3I, VoxelData> Voxels = [];
 
-    private MeshInstance3D MeshInstance = new()
+    public required Vector3I VoxelPosition;
+
+    public MeshInstance3D MeshInstance = new()
     {
         Name = "ChunkMesh"
     };
     
-    private StaticBody3D StaticBody = new()
+    public StaticBody3D StaticBody = new()
     {
         Name = "ChunkBody"
     };
 
-    private CollisionShape3D CollisionShape = new()
+    public CollisionShape3D CollisionShape = new()
     {
         Name = "ChunkCollision"
     };
 
-    private MeshInstance3D DebugOutline = GizmoCreator.CreateOutlineBox(-Vector3.One/2, Basis.Identity, VoxelManager.Instance.ChunkSize, new(1,1,1), false);
+    public MeshInstance3D DebugOutline = GizmoCreator.CreateOutlineBox(-Vector3.One/2, Basis.Identity, VoxelManager.Instance.ChunkSize, new(1,1,1), false);
 
     public override void _Ready()
     {
@@ -41,50 +43,62 @@ public partial class Chunk : Node3D
 
     private void Generate()
     {
-        int Seed = VoxelManager.Instance.WorldSeed;
-
-        var RandomGenerator = new FastNoiseLite
-        {
-            Seed = Seed
-        };
-
-        var ColorRandomGenerator = new FastNoiseLite
-        {
-            Seed = (int)new RandomNumberGenerator()
-            {
-                Seed = (ulong)Seed
-            }.Randi()
-        };
-
         var startTime = Time.GetTicksUsec();
 
+        int Seed = VoxelManager.Instance.WorldSeed;
+
+        Noise Noise = VoxelManager.Instance.Noise;
+        int MaxHeight = VoxelManager.Instance.MaxHeight;
+
         Vector3 ChunkSize = VoxelManager.Instance.ChunkSize;
-        float CutOff = VoxelManager.Instance.CutOff;
         Color[] Colors = VoxelManager.Instance.Colors;
 
         for (int x = 0; x < ChunkSize.X; x++)
         {
-            for (int y = 0; y < ChunkSize.Y; y++)
+            for (int z = 0; z < ChunkSize.Z; z++)
             {
-                for (int z = 0; z < ChunkSize.Z; z++)
+                int gX = VoxelPosition.X+x;
+                int gZ = VoxelPosition.Z+z;
+
+                float rand = ((Noise.GetNoise2D(gX,gZ) + 0.5f * Noise.GetNoise2D(2*gX,2*gZ) + 0.25f * Noise.GetNoise2D(4*gX,4*gZ)) / 1.75f + 1) / 2;
+                float randP = (float)Math.Pow(rand, 2.1);
+                int height = (int)(randP * MaxHeight);
+
+                if (height < VoxelPosition.Y) continue;
+
+                int localHeight = height - VoxelPosition.Y;
+
+                for (int y = 0; y<Math.Min(localHeight,ChunkSize.Y); y++)
                 {
-                    var random = RandomGenerator.GetNoise3D(Position.X+x,Position.Y+y,Position.Z+z);
-                    
-                    if (random > CutOff)
-                    {
-                        var colorRandom = Math.Abs(ColorRandomGenerator.GetNoise3D(Position.X+x,Position.Y+y,Position.Z+z));
-                        Voxels[new Vector3I(x,y,z)] = new VoxelData(Colors[(int)(colorRandom*Colors.Length)]);
-                    }
+                    Voxels[new Vector3I(x,y,z)] = new VoxelData(Colors[y % Colors.Length]);
                 }
             }
         }
 
+        // RandomNumberGenerator randomNumberGenerator = new();
+
+        // for (int x = 0; x < ChunkSize.X; x++)
+        // {
+        //     for (int y = 0; y < ChunkSize.Y; y++)
+        //     {
+        //         for (int z = 0; z < ChunkSize.Z; z++)
+        //         {
+        //             var rand = randomNumberGenerator.Randf();
+
+        //             if (rand>0.9999f)
+        //             {
+        //                 Voxels[new Vector3I(x,y,z)] = new VoxelData(Colors[0]);
+        //             }
+        //         }
+        //     }
+        // }
+
         var endTime = Time.GetTicksUsec();
         var genTime = endTime - startTime;
 
-        GD.Print("---");
-        GD.Print($"Voxels Generated: {Voxels.Count}");
-        GD.Print($"Gen Time: {genTime}");
+        // GD.Print("---");
+        // GD.Print($"Voxels Generated: {Voxels.Count}");
+        // GD.Print($"Gen Time: {genTime}");
     }
 
     public void Construct()
@@ -206,8 +220,23 @@ public partial class Chunk : Node3D
             VertexColorUseAsAlbedo = true,
         });
 
+        // if (!IsInstanceValid(MeshInstance) || !IsInstanceValid(CollisionShape)) return;
+
+        // MeshInstance.CallDeferred(MeshInstance3D.MethodName.SetMesh, mesh);
+        // CollisionShape.CallDeferred(CollisionShape3D.MethodName.SetShape, mesh.CreateTrimeshShape());
+
+        // if (!IsInstanceValid(this)) return;
+        // CallDeferred(MethodName.SetMeshAndCollisionShape, mesh, mesh.CreateTrimeshShape());
+
+        VoxelManager.Instance.CallDeferred(VoxelManager.MethodName.ApplyChunkMesh, this, mesh, mesh.CreateTrimeshShape());
+    }
+
+    private void SetMeshAndCollisionShape(Mesh mesh, Shape3D shape)
+    {
+        if (!IsInstanceValid(MeshInstance) || !IsInstanceValid(CollisionShape)) return;
+
         MeshInstance.Mesh = mesh;
-        CollisionShape.Shape = mesh.CreateTrimeshShape();
+        CollisionShape.Shape = shape;
     }
 
     public void Update()
