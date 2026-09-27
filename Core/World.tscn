@@ -1,0 +1,46 @@
+[gd_scene format=3 uid="uid://vdek33gh0tf2"]
+
+[ext_resource type="Script" uid="uid://c2xdel8m1cvx0" path="res://Core/World.cs" id="1_b3vfq"]
+[ext_resource type="PackedScene" uid="uid://4q4tb1mwypgk" path="res://Core/Player.tscn" id="1_l4o36"]
+[ext_resource type="Script" uid="uid://cd70o3df62lld" path="res://Core/Visuals/FreeCamera.cs" id="2_b3vfq"]
+[ext_resource type="Script" uid="uid://3av445t2wly1" path="res://Core/Voxels/ChunkManager.cs" id="4_kgac0"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_kgac0"]
+sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+
+[sub_resource type="Sky" id="Sky_eoukn"]
+sky_material = SubResource("ProceduralSkyMaterial_kgac0")
+
+[sub_resource type="Environment" id="Environment_bp1gy"]
+background_mode = 2
+sky = SubResource("Sky_eoukn")
+glow_enabled = true
+fog_mode = 1
+fog_density = 1.0
+fog_depth_curve = 0.2679422
+
+[node name="World" type="Node3D" unique_id=1645223016 node_paths=PackedStringArray("DebugCamera")]
+script = ExtResource("1_b3vfq")
+DebugCamera = NodePath("FreeCamera")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1350445169]
+transform = Transform3D(0.14644663, 0.8535534, -0.50000006, -0.50000006, 0.50000006, 0.70710677, 0.8535534, 0.14644666, 0.5, -2.0798578, 2.069956, 1.7480159)
+shadow_enabled = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1317051976]
+environment = SubResource("Environment_bp1gy")
+
+[node name="Player" parent="." unique_id=1715410596 instance=ExtResource("1_l4o36")]
+transform = Transform3D(0.70710677, 0, 0.70710677, 0, 1, 0, -0.70710677, 0, 0.70710677, 0, 50, 0)
+FLY_SPEED = 250.0
+FLY_VERTICAL_SPEED = 500.0
+
+[node name="FreeCamera" type="Camera3D" parent="." unique_id=1457222225]
+script = ExtResource("2_b3vfq")
+metadata/_custom_type_script = "uid://cd70o3df62lld"
+
+[node name="ChunkManager" type="Node" parent="." unique_id=412684224]
+script = ExtResource("4_kgac0")
+RenderDistance = 8
+ChunkLoadingThreads = 8

@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Voxel Engine"
-run/main_scene="uid://bwmo3f8jgq7x8"
+run/main_scene="uid://vdek33gh0tf2"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 

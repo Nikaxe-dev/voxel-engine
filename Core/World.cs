@@ -1,14 +1,15 @@
 using Godot;
-using System;
 
 namespace VoxelEngine.Core;
 
-public partial class Root : Node
+public partial class World : Node3D
 {
     [Export] public Camera3D DebugCamera;
 
     public override void _Ready()
     {
+        base._Ready();
+
         Input.MouseMode = Input.MouseModeEnum.Captured;
         Player.Instance.PlayerCamera.MakeCurrent();
     }

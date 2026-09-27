@@ -1,57 +1,33 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
+using VoxelEngine.Core.Data;
 using VoxelEngine.Core.Enums;
-using VoxelEngine.Core.Visuals;
 
 namespace VoxelEngine.Core.Voxels;
 
 public partial class Chunk : Node3D
 {
-    public Dictionary<Vector3I, VoxelData> Voxels = [];
+    public MeshInstance3D VoxelMeshInstance = new();
+    public Mesh VoxelMesh = null;
 
+    public Vector3I ChunkPosition;
     public Vector3I VoxelPosition;
-
-    public MeshInstance3D MeshInstance = new()
-    {
-        Name = "ChunkMesh"
-    };
-    
-    public StaticBody3D StaticBody = new()
-    {
-        Name = "ChunkBody"
-    };
-
-    public CollisionShape3D CollisionShape = new()
-    {
-        Name = "ChunkCollision"
-    };
-
-    public MeshInstance3D DebugOutline = GizmoCreator.CreateOutlineBox(-Vector3.One/2, Basis.Identity, VoxelManager.Instance.ChunkSize, new(1,1,1), false);
 
     public override void _Ready()
     {
-        StaticBody.AddChild(MeshInstance);
-        StaticBody.AddChild(CollisionShape);
-        AddChild(StaticBody);
-
-        AddChild(DebugOutline);
-        DebugOutline.Name = "DebugOutline";
-        DebugOutline.Visible = VoxelManager.Instance.DebugShowChunkOutline;
+        base._Ready();
+        AddChild(VoxelMeshInstance);
     }
 
-    private void Generate()
+    private Dictionary<Vector3I, VoxelData> Generate()
     {
-        var startTime = Time.GetTicksUsec();
+        Dictionary<Vector3I, VoxelData> voxels = [];
 
-        int Seed = VoxelManager.Instance.WorldSeed;
+        Noise Noise = new FastNoiseLite();
+        int MaxHeight = 128;
 
-        Noise Noise = VoxelManager.Instance.Noise;
-        int MaxHeight = VoxelManager.Instance.MaxHeight;
-
-        Vector3 ChunkSize = VoxelManager.Instance.ChunkSize;
-        Color[] Colors = VoxelManager.Instance.Colors;
+        Vector3 ChunkSize = ChunkManager.Instance.ChunkSize;
 
         RandomNumberGenerator randomNumberGenerator = new();
 
@@ -65,7 +41,7 @@ public partial class Chunk : Node3D
 
                     if (rand>0.99999f)
                     {
-                        Voxels[new Vector3I(x,y,z)] = new VoxelData(Colors[0]);
+                        voxels[new Vector3I(x,y,z)] = new VoxelData();
                     }
                 }
             }
@@ -88,26 +64,15 @@ public partial class Chunk : Node3D
 
                 for (int y = 0; y<Math.Min(localHeight,ChunkSize.Y); y++)
                 {
-                    Voxels[new Vector3I(x,y,z)] = new VoxelData(Colors[y % Colors.Length]);
+                    voxels[new Vector3I(x,y,z)] = new VoxelData();
                 }
             }
         }
 
-        var endTime = Time.GetTicksUsec();
-        var genTime = endTime - startTime;
+        return voxels;
     }
 
-    public void Construct()
-    {
-        Voxels = [];
-        CallDeferred(MethodName.SetShapeNull);
-        Generate();
-    }
-
-    public void SetShapeNull()
-    {
-        CollisionShape.Shape = null;
-    }
+    public Dictionary<Vector3I, VoxelData> Construct() => Generate();
 
     private static readonly Vector3[] CubeVertices = [
         new(-0.5f,-0.5f,0.5f),
@@ -150,14 +115,9 @@ public partial class Chunk : Node3D
         [CubeFace.Back] = new(1,0,1),
     };
 
-    private Godot.Collections.Array SurfaceArray = [];
-    private List<Vector3> Vertices = [];
-    private List<Vector3> Normals = [];
-    private List<Color> Colors = [];
-
-    private void AddFace(CubeFace face, Vector3I position, VoxelData voxel)
+    private void AddFaceMeshData(ArrayMeshData meshData, Dictionary<Vector3I, VoxelData> voxels, CubeFace face, Vector3I position, VoxelData voxel)
     {
-        if (FaceHasNeighbour(face, position)) return;
+        if (FaceHasNeighbour(voxels, face, position)) return;
 
         var indices = FaceIndices[face];
         
@@ -165,83 +125,40 @@ public partial class Chunk : Node3D
         {
             foreach (var index in triangle)
             {
-                Vertices.Add(CubeVertices[index] + position);
-                Normals.Add(FaceNormals[face]);
-                Colors.Add(voxel.Color);
+                meshData.Vertices.Add(CubeVertices[index] + position);
+                meshData.Normals.Add(FaceNormals[face]);
+                meshData.Colors.Add(FaceColors[face]);
             }
         }
     }
 
-    private bool FaceHasNeighbour(CubeFace face, Vector3I position)
+    private bool FaceHasNeighbour(Dictionary<Vector3I, VoxelData> voxels, CubeFace face, Vector3I position)
     {
         Vector3I neighbourPosition = position + FaceNormals[face];
-        return Voxels.TryGetValue(neighbourPosition, out _);
+        return voxels.TryGetValue(neighbourPosition, out _);
     }
 
-    private void ResetMeshData()
+    private void AddVoxelMeshData(ArrayMeshData meshData, Dictionary<Vector3I, VoxelData> voxels, VoxelData voxel, Vector3I position)
     {
-        Vertices = [];
-        Normals = [];
-        Colors = [];
+        AddFaceMeshData(meshData, voxels, CubeFace.Front, position, voxel);
+        AddFaceMeshData(meshData, voxels, CubeFace.Back, position, voxel);
+        AddFaceMeshData(meshData, voxels, CubeFace.Left, position, voxel);
+        AddFaceMeshData(meshData, voxels, CubeFace.Right, position, voxel);
+        AddFaceMeshData(meshData, voxels, CubeFace.Top, position, voxel);
+        AddFaceMeshData(meshData, voxels, CubeFace.Bottom, position, voxel);
     }
 
-    private void AddVoxel(VoxelData voxel, Vector3I position)
+    private ArrayMeshData CreateMeshData(Dictionary<Vector3I, VoxelData> voxels)
     {
-        AddFace(CubeFace.Front, position, voxel);
-        AddFace(CubeFace.Back, position, voxel);
-        AddFace(CubeFace.Left, position, voxel);
-        AddFace(CubeFace.Right, position, voxel);
-        AddFace(CubeFace.Top, position, voxel);
-        AddFace(CubeFace.Bottom, position, voxel);
-    }
+        ArrayMeshData meshData = new();
 
-    private void GenerateMesh()
-    {
-        ResetMeshData();
-
-        foreach (KeyValuePair<Vector3I, VoxelData> kvp in Voxels)
+        foreach (KeyValuePair<Vector3I, VoxelData> kvp in voxels)
         {
-            AddVoxel(kvp.Value, kvp.Key);
-        }
-    }
-
-    private void CommitMesh()
-    {
-        ArrayMesh mesh = new();
-
-        SurfaceArray = [];
-        SurfaceArray.Resize((int)Mesh.ArrayType.Max);
-
-        SurfaceArray[(int)Mesh.ArrayType.Vertex] = Vertices.ToArray();
-        SurfaceArray[(int)Mesh.ArrayType.Normal] = Normals.ToArray();
-        SurfaceArray[(int)Mesh.ArrayType.Color] = Colors.ToArray();
-
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, SurfaceArray);
-
-        mesh.SurfaceSetMaterial(0, new StandardMaterial3D()
-        {
-            VertexColorUseAsAlbedo = true,
-        });
-
-        // if (!IsInstanceValid(MeshInstance) || !IsInstanceValid(CollisionShape)) return;
-
-        MeshInstance.CallDeferred(MeshInstance3D.MethodName.SetMesh, mesh);
-        CollisionShape.CallDeferred(CollisionShape3D.MethodName.SetShape, mesh.CreateTrimeshShape());
-
-        // if (!IsInstanceValid(this)) return;
-        // CallDeferred(MethodName.SetMeshAndCollisionShape, mesh, mesh.CreateTrimeshShape());
-
-        // VoxelManager.Instance.CallDeferred(VoxelManager.MethodName.ApplyChunkMesh, this, mesh, mesh.CreateTrimeshShape());
-    }
-    public void Update()
-    {
-        if (Voxels.Count < 1)
-        {
-            MeshInstance.Mesh = null;
-            return;
+            AddVoxelMeshData(meshData, voxels, kvp.Value, kvp.Key);
         }
 
-        GenerateMesh();
-        CommitMesh();
+        return meshData;
     }
+
+    public Mesh GenerateMesh(Dictionary<Vector3I, VoxelData> voxels) => CreateMeshData(voxels).GenerateMesh();
 }
