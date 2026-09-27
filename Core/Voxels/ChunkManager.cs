@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using Godot;
 
@@ -20,6 +21,7 @@ public partial class ChunkManager : Node
     public readonly ConcurrentQueue<Chunk> ChunkAddQueue = [];
 
     private readonly Dictionary<Vector3I, Chunk> Chunks = [];
+    private readonly HashSet<Vector3I> LoadingChunks = [];
 
     public override void _Ready()
     {
@@ -48,6 +50,7 @@ public partial class ChunkManager : Node
         {
             chunk.VoxelMeshInstance.Mesh = chunk.VoxelMesh;
             Chunks[chunk.ChunkPosition] = chunk;
+            LoadingChunks.Remove(chunk.ChunkPosition);
         }
 
         var playerChunkPosition = GetPlayerChunkPosition();
@@ -63,8 +66,10 @@ public partial class ChunkManager : Node
 
     private void LoadChunk(Vector3I chunkPosition)
     {
-        if (!Chunks.TryGetValue(chunkPosition, out _))
-            ChunkLoaders[(int)(GD.Randf() * ChunkLoaders.Count)].RequestChunkLoad(chunkPosition);
+        if (Chunks.ContainsKey(chunkPosition)) return;
+        if (!LoadingChunks.Add(chunkPosition)) return;
+
+        ChunkLoaders[(int)(GD.Randf() * ChunkLoaders.Count)].RequestChunkLoad(chunkPosition);
     }
 
     private void RecalculateChunks(Vector3I playerChunkPosition)

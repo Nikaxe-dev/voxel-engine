@@ -8,8 +8,6 @@ namespace VoxelEngine.Core.Voxels;
 
 public partial class ChunkLoader : Node
 {
-    private string DebugInfo = "nothing done";
-
     public Vector3I ChunkToVoxelPosition(Vector3I chunkPosition) => chunkPosition * ChunkManager.Instance.ChunkSize;
 
     private Chunk CreateChunk(Vector3I chunkPosition)
@@ -46,14 +44,13 @@ public partial class ChunkLoader : Node
                 {
                     while (RequestedChunks.TryDequeue(out Chunk chunk))
                     {
-                        DebugInfo = $"Is chunk valid: {IsInstanceValid(chunk)}";
                         chunk.VoxelMesh = chunk.GenerateMesh(chunk.Construct());
                         ChunkManager.Instance.ChunkAddQueue.Enqueue(chunk);
                     }
                 }
             } catch (Exception err)
             {
-                GD.PrintErr("A ChunkLoader thread encountered an error while loading chunks with debug info: ", DebugInfo, " and error: ", err);
+                GD.PrintErr("A ChunkLoader thread encountered an error while loading chunks: ", err);
             }
         });
     }

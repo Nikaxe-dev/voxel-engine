@@ -42,5 +42,4 @@ metadata/_custom_type_script = "uid://cd70o3df62lld"
 
 [node name="ChunkManager" type="Node" parent="." unique_id=412684224]
 script = ExtResource("4_kgac0")
-RenderDistance = 8
-ChunkLoadingThreads = 8
+ChunkLoadingThreads = 4
